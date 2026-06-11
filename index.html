@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blinq · Cross-Venue Arb Scanner</title>
+<meta name="description" content="Live cross-venue arbitrage scanner for prediction markets: Polymarket × Kalshi × Limitless, with Blinq leverage economics and the Blinq Composite index price.">
+<style>
+:root{
+  --bg:#0d1320; --panel:#141c2e; --panel2:#1a2438; --line:#243049;
+  --text:#e8edf6; --dim:#8b97ad; --teal:#2dd4bf; --red:#f87171; --green:#4ade80;
+  --amber:#fbbf24; --blue:#60a5fa; --purple:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:14px/1.55 -apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;padding-bottom:60px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+header{padding:34px 0 18px;border-bottom:1px solid var(--line)}
+h1{font-size:26px;letter-spacing:-.5px}
+h1 .bolt{color:var(--teal)}
+.tagline{color:var(--dim);margin-top:4px;font-size:13px}
+.tagline a{color:var(--blue);text-decoration:none}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 6px}
+.pill{padding:3px 11px;border-radius:99px;font-size:11.5px;border:1px solid var(--line);background:var(--panel);color:var(--dim)}
+.pill.ok{border-color:#1d5c50;color:var(--teal)}
+.pill.err{border-color:#6b2b2b;color:var(--red)}
+.pill.wait{border-color:#5a4a1d;color:var(--amber)}
+button{background:var(--teal);color:#06281f;border:0;border-radius:8px;padding:8px 18px;font-weight:700;font-size:13px;cursor:pointer}
+button:disabled{opacity:.5;cursor:wait}
+.ctl{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:10px 0 0;font-size:12.5px;color:var(--dim)}
+.ctl input,.ctl select{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 8px;width:70px;font-size:12.5px}
+.ctl select{width:auto}
+h2{font-size:17px;margin:30px 0 4px}
+.sub{color:var(--dim);font-size:12.5px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:10px;overflow:hidden;font-size:13px}
+th{background:var(--panel2);text-align:left;padding:9px 12px;font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:top}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.pos{color:var(--green);font-weight:700}
+.neg{color:var(--red)}
+.mut{color:var(--dim)}
+.tag{display:inline-block;padding:1px 8px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.4px}
+.tag.macro{background:#16314d;color:var(--blue)}
+.tag.crypto{background:#3b2a4d;color:var(--purple)}
+.tag.politics{background:#163d33;color:var(--teal)}
+.tag.sports{background:#4d3a16;color:var(--amber)}
+.tag.depth-ok{background:#143526;color:var(--green)}
+.tag.depth-no{background:#3d1f1f;color:var(--red)}
+.tag.tob{background:#3d3216;color:var(--amber)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.card h3{font-size:15px;margin-bottom:2px}
+.card .meta{color:var(--dim);font-size:12px;margin-bottom:10px}
+.legs{width:100%;font-size:12.5px}
+.legs td,.legs th{padding:5px 10px}
+.comp{font-size:13px;margin-top:8px;color:var(--dim)}
+.comp b{color:var(--teal);font-size:15px}
+.equiv{margin-top:8px;font-size:11.5px;color:var(--amber);background:#27210f;border-radius:6px;padding:6px 10px}
+.foot{margin-top:36px;border-top:1px solid var(--line);padding-top:18px;color:var(--dim);font-size:12px}
+.foot h3{color:var(--text);font-size:13px;margin:14px 0 4px}
+.err-banner{background:#2d1717;border:1px solid #6b2b2b;color:#fca5a5;padding:10px 14px;border-radius:8px;margin:14px 0;font-size:12.5px;display:none}
+.loading{color:var(--dim);padding:30px;text-align:center}
+code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:11.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1><span class="bolt">⚡ Blinq</span> · Cross-Venue Arb Scanner <span style="font-size:12px;color:var(--dim)">v1</span></h1>
+  <div class="tagline">Polymarket × Kalshi × Limitless · deeply liquid, non-gappy markets only (selection per the <a href="https://jumpriskpm.netlify.app/" target="_blank">Leverage-Risk Scanner</a>) · net edge shown after ALL fees, at retail and MM tier, with the Blinq leg levered</div>
+  <div class="bar">
+    <span class="pill" id="pill-pm">Polymarket: —</span>
+    <span class="pill" id="pill-ka">Kalshi: —</span>
+    <span class="pill" id="pill-li">Limitless: —</span>
+    <button id="refresh" onclick="run()">Scan now</button>
+    <span class="pill" id="updated">never updated</span>
+  </div>
+  <div class="ctl">
+    <label>Expected hold (days) <input type="number" id="holdDays" value="14" min="1" max="120"></label>
+    <label>Depth filter <select id="depthReq"><option value="10000" selected>$10K both legs</option><option value="50000">$50K both legs</option><option value="0">Top-of-book</option></select></label>
+    <label>Blinq leverage <select id="lev"><option>2</option><option selected>3</option><option>5</option></select></label>
+    <span>Composite: depth-weighted, PM-anchored 60%</span>
+  </div>
+</header>
+
+<div class="err-banner" id="corsNote"><b>Some venues blocked direct browser calls.</b> Deploy this folder to Vercel (the included <code>api/proxy.js</code> handles CORS) or run <code>vercel dev</code> locally — the page auto-falls back to the proxy when deployed.</div>
+
+<h2>Top opportunities</h2>
+<div class="sub">Ranked by annualized net edge at MM tier · both directions tested (lever the rich side via Blinq, buy the cheap side spot) · spreads must survive the depth filter on both legs</div>
+<div id="topTable" class="loading">Press “Scan now” to fetch live quotes.</div>
+
+<h2>Market detail · Blinq Composite</h2>
+<div class="sub">Per-venue executable prices, deviation from the composite, and depth. Composite = candidate Blinq mark price: depth-weighted mid, PM-anchored, stale venues dropped.</div>
+<div id="cards"></div>
+
+<div class="foot">
+  <h3>Method</h3>
+  <p><b>Gross spread</b> = $1 − ask(YES, venue A) − ask(NO, venue B), tested in both directions across every venue pair with the Blinq-levered leg on Polymarket. Prices are depth-adjusted: the VWAP to fill the selected size on each leg, walked from live order books where the venue exposes one (Polymarket CLOB, Kalshi orderbook); otherwise top-of-book, flagged <span class="tag tob">TOB</span>.</p>
+  <p><b>Net edge</b> subtracts: Kalshi taker fee (0.07·P·(1−P)), Polymarket taker fee where enabled (rate·P·(1−P) from the market's fee schedule), and Blinq costs on the levered leg — <b>retail tier</b>: 10bps open + 10bps close + 50bps vig per side + 43.8% APR borrow on the borrowed portion for the expected hold; <b>MM tier</b>: 5bps per side, no vig, 12% APR borrow. Capital = spot leg premium + levered leg margin (notional/leverage). Annualized = ROC × 365 / hold days.</p>
+  <p><b>Blinq Composite</b> = Σ wᵢ·midᵢ with Polymarket anchored at 60% and the remainder split by visible depth; venues with quotes older than the scan or with no two-sided book are dropped. Deviation of a venue leg from the composite is the rich/cheap signal — the same imbalance that spikes Blinq skew funding on the minority side (funding receipts, not modeled here, further offset borrow cost).</p>
+  <p><b>Not modeled:</b> skew-funding receipts (kicker in the arb's favor), gas, slippage beyond the depth walk, margin-path liquidation risk on the levered leg (run below max leverage), and contract fine-print differences — see per-market equivalence notes. Spreads across venues are sometimes the fine print, not free money. Verify rules before trading.</p>
+  <h3>Sources</h3>
+  <p>Polymarket Gamma + CLOB public APIs · Kalshi trade-api/v2 public market data · Limitless public API. Fee tiers per Blinq economics model (GTM/05). This page is research tooling, not investment advice.</p>
+</div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const PROXY = '/api/proxy?url=';            // included Vercel function; auto-fallback
+const PM_W  = 0.6;                          // composite PM anchor weight
+const KALSHI = 'https://api.elections.kalshi.com/trade-api/v2';
+const GAMMA  = 'https://gamma-api.polymarket.com';
+const CLOB   = 'https://clob.polymarket.com';
+const LIMITLESS = 'https://api.limitless.exchange';
+
+/* Curated pair definitions. Resolvers run at scan time so tickers/slugs survive churn.
+   To pin a specific market, set kalshi.ticker / pm.slug / li.slug overrides. */
+const PAIRS = [
+  {
+    id:'fed-next', family:'macro', name:'Fed decision — nearest FOMC · Cut 25bps',
+    equiv:'Both resolve to the FOMC target-range decision at the same meeting. Verify: inter-meeting move handling and "maintain vs cut" bucket boundaries match.',
+    kalshi:{mode:'series', series:'KXFEDDECISION', eventPick:'nearest', strikeRx:/cut\s*25\s*bps/i},
+    pm:{mode:'search', q:'fed decision', eventRx:/^fed (decision|interest)/i, marketRx:/25\s*bps?\s*(decrease|cut)/i},
+    li:null
+  },
+  {
+    id:'fed-next2', family:'macro', name:'Fed decision — following FOMC · Cut 25bps (30D+)',
+    equiv:'Same meeting on both venues; the 30D+ duration market is the leverage-addressable one per the jump-risk scanner.',
+    kalshi:{mode:'series', series:'KXFEDDECISION', eventPick:'second', strikeRx:/cut\s*25\s*bps/i},
+    pm:{mode:'search', q:'fed decision', eventRx:/^fed (decision|interest)/i, marketRx:/25\s*bps?\s*(decrease|cut)/i, eventPick:'second'},
+    li:null
+  },
+  {
+    id:'senate-2026', family:'politics', name:'US Senate control after 2026 midterms · GOP',
+    equiv:'Verify: chamber-control definitions match on independents caucusing and the VP tie-break; resolution dates may differ (election call vs. seating).',
+    kalshi:{mode:'eventsearch', rx:/senate.*(control|majority)|(control|majority).*senate/i, strikeRx:/rep|gop/i},
+    pm:{mode:'search', q:'senate control 2026', eventRx:/senate/i, marketRx:/republican/i},
+    li:null
+  },
+  {
+    id:'house-2026', family:'politics', name:'US House control after 2026 midterms · GOP',
+    equiv:'Same checks as Senate: control definition, vacancies, resolution timing.',
+    kalshi:{mode:'eventsearch', rx:/house.*(control|majority)|(control|majority).*house/i, strikeRx:/rep|gop/i},
+    pm:{mode:'search', q:'house control 2026', eventRx:/house/i, marketRx:/republican/i},
+    li:null
+  },
+  {
+    id:'btc-yearend', family:'crypto', name:'Bitcoin $80K+ in 2026',
+    equiv:'CHECK CAREFULLY: "touch/hit at any point" vs "close above on date" are different contracts; oracle sources differ (PM=CF/CME-style, Limitless=Chainlink, Kalshi=its own index).',
+    kalshi:{mode:'eventsearch', rx:/bitcoin|btc/i, strikeRx:/80,?000|80k/i},
+    pm:{mode:'search', q:'bitcoin price 2026', eventRx:/bitcoin.*(hit|reach|price).*2026|what price.*bitcoin/i, marketRx:/80,?000|80k/i},
+    li:{mode:'scan', rx:/btc|bitcoin/i, strikeRx:/80,?000|80k/i, minDays:7}
+  },
+  {
+    id:'worldcup', family:'sports', name:'2026 FIFA World Cup winner · PM favorite',
+    equiv:'Championship futures (30D+, non-gappy family). Verify: tournament-cancellation and co-host edge cases match across venues.',
+    kalshi:{mode:'eventsearch', rx:/world cup/i, strikeRx:null /* matched to PM favorite at runtime */},
+    pm:{mode:'search', q:'world cup winner', eventRx:/world cup.*(winner|champion)|2026 fifa/i, marketRx:'FAVORITE'},
+    li:null
+  }
+];
+
+/* Blinq fee tiers — mirror of GTM/05-Daily-Economics-Model.xlsx */
+const TIERS = {
+  retail:{feeRT:0.0020, vigRT:0.0100, aprBorrow:0.438},
+  mm:    {feeRT:0.0010, vigRT:0.0000, aprBorrow:0.120}
+};
+const kalshiFee = p => 0.07*p*(1-p);
+const pmFee = (p, mkt) => (mkt && mkt.feesEnabled && mkt.feeSchedule && mkt.feeSchedule.rate) ? mkt.feeSchedule.rate*p*(1-p) : 0;
+
+/* ================= FETCH LAYER ================= */
+let usedProxy=false;
+async function jget(url){
+  try{
+    const r=await fetch(url,{headers:{'Accept':'application/json'}});
+    if(!r.ok) throw new Error(r.status);
+    return await r.json();
+  }catch(e){
+    try{
+      const r=await fetch(PROXY+encodeURIComponent(url));
+      if(!r.ok) throw new Error('proxy '+r.status);
+      usedProxy=true;
+      return await r.json();
+    }catch(e2){
+      document.getElementById('corsNote').style.display='block';
+      throw e2;
+    }
+  }
+}
+
+/* ================= VENUE ADAPTERS =================
+   Each returns a leg: {venue, label, bid, ask, mid, askVWAP, bidDepth$, askDepth$, tob, daysLeft, url, raw} for the YES side. NO side derived: askNO = 1-bid, etc. */
+
+async function pmResolve(spec){
+  let market=null, event=null;
+  if(spec.slug){
+    const evs=await jget(`${GAMMA}/events?slug=${spec.slug}`); event=evs[0];
+  }else{
+    const res=await jget(`${GAMMA}/public-search?q=${encodeURIComponent(spec.q)}&limit_per_type=8`);
+    let events=(res.events||[]).filter(e=>e.active&&!e.closed);
+    let hits=events.filter(e=>spec.eventRx.test(e.title||''));
+    if(!hits.length) hits=events;
+    hits.sort((a,b)=>(b.liquidity||0)-(a.liquidity||0));
+    event=hits[spec.eventPick==='second'?1:0]||hits[0];
+  }
+  if(!event) return null;
+  let mkts=event.markets||[];
+  if(!mkts.length){ mkts=await jget(`${GAMMA}/markets?limit=80&closed=false&order=liquidityNum&ascending=false&events_slug=${event.slug}`)||[]; }
+  mkts=mkts.filter(m=>m.active!==false&&m.closed!==true);
+  if(spec.marketRx==='FAVORITE'){
+    mkts.sort((a,b)=>lastP(b)-lastP(a)); market=mkts[0];
+  }else{
+    market=mkts.find(m=>spec.marketRx.test((m.groupItemTitle||'')+' '+(m.question||'')))||null;
+  }
+  if(!market) return null;
+  let tokens=[]; try{tokens=JSON.parse(market.clobTokenIds||'[]');}catch(e){}
+  const leg={venue:'Polymarket', label:market.groupItemTitle||market.question, daysLeft:days(market.endDate),
+             url:`https://polymarket.com/event/${event.slug}`, raw:market, tob:true,
+             bid:+market.bestBid||null, ask:+market.bestAsk||null, bidDepth:0, askDepth:0};
+  if(tokens[0]){
+    try{
+      const book=await jget(`${CLOB}/book?token_id=${tokens[0]}`);
+      if(book&&book.asks&&book.asks.length){
+        Object.assign(leg, walkBook(book), {tob:false});
+      }
+    }catch(e){}
+  }
+  if(leg.bid==null&&market.outcomePrices){try{leg.bid=leg.ask=+JSON.parse(market.outcomePrices)[0];}catch(e){}}
+  leg.mid=mid(leg); leg.matched=`${event.title} → ${leg.label}`;
+  return leg;
+}
+function lastP(m){try{return +JSON.parse(m.outcomePrices||'[0]')[0]||0;}catch(e){return 0;}}
+
+function walkBook(book){
+  const need=+document.getElementById('depthReq').value||10000;
+  const vwap=(levels,desc)=>{ // levels: [{price,size}]
+    let arr=levels.map(l=>({p:+l.price,s:+l.size})).sort((a,b)=>desc?b.p-a.p:a.p-b.p);
+    let cost=0,qty=0,filled=0;
+    for(const l of arr){ const lv=l.p*l.s; const take=Math.min(lv, Math.max(0,need-filled)); cost+=take; qty+=take/l.p; filled+=take; if(filled>=need)break; }
+    const depth=arr.reduce((a,l)=>a+l.p*l.s,0);
+    return {px: qty? cost/qty : (arr[0]?arr[0].p:null), depth, ok: filled>=need||need===0};
+  };
+  const a=vwap(book.asks,false), b=vwap(book.bids,true);
+  return {ask:a.px, bid:b.px, askDepth:a.depth, bidDepth:b.depth, depthOk:a.ok&&b.ok};
+}
+
+async function kalshiResolve(spec){
+  let mkts=[];
+  if(spec.ticker){ const r=await jget(`${KALSHI}/markets/${spec.ticker}`); mkts=[r.market]; }
+  else if(spec.mode==='series'){
+    const r=await jget(`${KALSHI}/markets?series_ticker=${spec.series}&status=open&limit=200`);
+    let evs={}; (r.markets||[]).forEach(m=>{(evs[m.event_ticker]=evs[m.event_ticker]||[]).push(m);});
+    let groups=Object.values(evs).map(g=>({g,t:new Date(g[0].close_time)})).filter(x=>x.t>new Date()).sort((a,b)=>a.t-b.t);
+    const pick=groups[spec.eventPick==='second'?1:0]||groups[0];
+    mkts=pick?pick.g:[];
+  }else if(spec.mode==='eventsearch'){
+    let cursor='',events=[];
+    for(let i=0;i<3;i++){
+      const r=await jget(`${KALSHI}/events?status=open&limit=200${cursor?'&cursor='+cursor:''}`);
+      events=events.concat(r.events||[]); cursor=r.cursor; if(!cursor)break;
+    }
+    const ev=events.filter(e=>spec.rx.test(e.title||'')).sort((a,b)=>new Date(a.close_time||0)-new Date(b.close_time||0))[0];
+    if(!ev) return null;
+    const r=await jget(`${KALSHI}/markets?event_ticker=${ev.event_ticker}&status=open&limit=100`);
+    mkts=r.markets||[];
+  }
+  if(!mkts.length) return null;
+  let m=spec.strikeRx? mkts.find(x=>spec.strikeRx.test((x.yes_sub_title||'')+' '+(x.subtitle||'')+' '+(x.title||''))) : null;
+  if(!m && spec._matchName) m=mkts.find(x=>((x.yes_sub_title||'')+(x.title||'')).toLowerCase().includes(spec._matchName.toLowerCase()));
+  if(!m) m=mkts.sort((a,b)=>(+b.volume_fp||0)-(+a.volume_fp||0))[0];
+  if(!m) return null;
+  const leg={venue:'Kalshi', label:m.yes_sub_title||m.subtitle||m.title, daysLeft:days(m.close_time), raw:m,
+             url:`https://kalshi.com/markets/${(m.event_ticker||'').toLowerCase()}`,
+             bid:+m.yes_bid_dollars||null, ask:+m.yes_ask_dollars||null, tob:true,
+             bidDepth:(+m.yes_bid_size_fp||0)*(+m.yes_bid_dollars||0), askDepth:(+m.yes_ask_size_fp||0)*(+m.yes_ask_dollars||0)};
+  try{
+    const ob=await jget(`${KALSHI}/markets/${m.ticker}/orderbook?depth=32`);
+    const o=ob.orderbook||ob;
+    if(o&&(o.yes||o.no)){
+      const yesBids=(o.yes||[]).map(l=>({price:l[0]/100,size:l[1]}));           // bids for YES
+      const yesAsks=(o.no||[]).map(l=>({price:1-l[0]/100,size:l[1]}));          // asks for YES = 1 - NO bids
+      Object.assign(leg, walkBook({bids:yesBids, asks:yesAsks}), {tob:false});
+    }
+  }catch(e){}
+  leg.mid=mid(leg); leg.matched=`${m.title}`;
+  return leg;
+}
+
+async function liResolve(spec){
+  if(!spec) return null;
+  let found=null, page=1, seen=new Set();
+  for(let i=0;i<4&&!found;i++){
+    const r=await jget(`${LIMITLESS}/markets/active?limit=50&page=${page++}`);
+    const list=r.data||r.markets||[];
+    if(!list.length) break;
+    for(const m of list){
+      if(seen.has(m.id))return null; seen.add(m.id);
+      const title=(m.title||'')+' '+(m.proxyTitle||'');
+      const dl=days(m.expirationTimestamp);
+      if(spec.rx.test(title)&&(!spec.strikeRx||spec.strikeRx.test(title))&&dl>=(spec.minDays||0)){found=m;break;}
+    }
+  }
+  if(!found) return null;
+  const p=found.prices&&found.prices.length?found.prices[0]:null;
+  const tp=found.tradePrices||{};
+  const leg={venue:'Limitless', label:found.title, daysLeft:days(found.expirationTimestamp), raw:found, tob:true,
+             url:`https://limitless.exchange/markets/${found.slug}`,
+             ask:(tp.buy&&tp.buy.market&&tp.buy.market[0])||p, bid:(tp.sell&&tp.sell.market&&tp.sell.market[0])||p,
+             bidDepth:0, askDepth:0};
+  leg.mid=mid(leg); leg.matched=found.title;
+  return leg;
+}
+
+/* ================= MATH ================= */
+const days=t=>{const d=(new Date(t)-new Date())/86400000;return isFinite(d)?Math.max(0,Math.round(d)):null;};
+const mid=l=>(l.bid!=null&&l.ask!=null)?(l.bid+l.ask)/2:(l.ask??l.bid??null);
+
+function blinqCost(notional, hold, tier){
+  const L=+document.getElementById('lev').value;
+  const t=TIERS[tier];
+  return notional*(t.feeRT+t.vigRT) + notional*(1-1/L)*(t.aprBorrow/365)*hold;
+}
+function venueFee(leg, price){
+  if(leg.venue==='Kalshi') return kalshiFee(price);
+  if(leg.venue==='Polymarket') return pmFee(price, leg.raw);
+  return 0; // Limitless taker fees market-dependent; flagged in method note
+}
+
+/* Edge for: buy YES spot on legA at askYES_A, buy NO levered on PM at askNO_PM (=1-bid_PM). And reverse. */
+function edges(pmLeg, otherLeg, hold){
+  const L=+document.getElementById('lev').value;
+  const out=[];
+  if(!pmLeg||!otherLeg) return out;
+  // Direction 1: other=YES spot, PM=NO levered
+  if(otherLeg.ask!=null&&pmLeg.bid!=null){
+    const aY=otherLeg.ask, aN=1-pmLeg.bid;
+    const gross=1-aY-aN;
+    const fees=venueFee(otherLeg,aY)+venueFee(pmLeg,aN);
+    const cap=aY+aN/L;
+    out.push(dirObj(`YES@${otherLeg.venue} + NO@PM(Blinq)`,gross,fees,aN,cap,hold));
+  }
+  // Direction 2: PM=YES levered, other=NO spot
+  if(pmLeg.ask!=null&&otherLeg.bid!=null){
+    const aY=pmLeg.ask, aN=1-otherLeg.bid;
+    const gross=1-aY-aN;
+    const fees=venueFee(pmLeg,aY)+venueFee(otherLeg,aN);
+    const cap=aN+aY/L;
+    out.push(dirObj(`YES@PM(Blinq) + NO@${otherLeg.venue}`,gross,fees,aY,cap,hold));
+  }
+  return out;
+}
+function dirObj(label,gross,fees,blinqNotional,cap,hold){
+  const o={label,gross,cap};
+  for(const tier of ['retail','mm']){
+    const net=gross-fees-blinqCost(blinqNotional,hold,tier);
+    o[tier]={net, roc:net/cap, ann:(net/cap)*365/Math.max(1,hold)};
+  }
+  return o;
+}
+
+/* ================= ORCHESTRATION ================= */
+const $=id=>document.getElementById(id);
+function pill(id,state,txt){const e=$(id);e.className='pill '+state;e.textContent=txt;}
+
+async function run(){
+  $('refresh').disabled=true; usedProxy=false;
+  pill('pill-pm','wait','Polymarket: …'); pill('pill-ka','wait','Kalshi: …'); pill('pill-li','wait','Limitless: …');
+  const hold=+$('holdDays').value||14;
+  const status={Polymarket:'ok',Kalshi:'ok',Limitless:'ok'};
+  const rows=[];
+  for(const pair of PAIRS){
+    const r={pair,legs:{},dirs:[]};
+    try{r.legs.pm=await pmResolve(pair.pm);}catch(e){status.Polymarket='err';}
+    try{
+      const ks={...pair.kalshi};
+      if(pair.pm&&pair.pm.marketRx==='FAVORITE'&&r.legs.pm) ks._matchName=(r.legs.pm.label||'').split(' ')[0];
+      r.legs.ka=await kalshiResolve(ks);
+    }catch(e){status.Kalshi='err';}
+    try{r.legs.li=await liResolve(pair.li);}catch(e){status.Limitless='err';}
+    const pmL=r.legs.pm;
+    for(const other of [r.legs.ka,r.legs.li].filter(Boolean)){
+      const effHold=Math.min(hold, other.daysLeft||hold, pmL?(pmL.daysLeft||hold):hold);
+      r.dirs.push(...edges(pmL,other,effHold).map(d=>({...d,against:other.venue,hold:effHold,
+        depthOk:depthState(pmL,other)})));
+    }
+    r.composite=composite(Object.values(r.legs).filter(Boolean));
+    rows.push(r);
+  }
+  pill('pill-pm',status.Polymarket,'Polymarket: '+(status.Polymarket==='ok'?'live':'error'));
+  pill('pill-ka',status.Kalshi,'Kalshi: '+(status.Kalshi==='ok'?'live':'error'));
+  pill('pill-li',status.Limitless,'Limitless: '+(status.Limitless==='ok'?'live':'error'));
+  $('updated').textContent='updated '+new Date().toLocaleTimeString()+(usedProxy?' · via proxy':'');
+  render(rows);
+  $('refresh').disabled=false;
+}
+
+function depthState(a,b){
+  const need=+$('depthReq').value;
+  if(need===0) return 'tob';
+  const ok=l=>l&&!l.tob&&(l.depthOk!==false);
+  return (ok(a)&&ok(b))?'ok':(a&&b&&(a.tob||b.tob))?'tob':'no';
+}
+function composite(legs){
+  const live=legs.filter(l=>l&&l.mid!=null);
+  if(!live.length) return null;
+  const pm=live.find(l=>l.venue==='Polymarket');
+  let w={}, others=live.filter(l=>l!==pm);
+  if(pm&&others.length){
+    w[pm.venue]=PM_W;
+    const dsum=others.reduce((a,l)=>a+Math.max(1,(l.bidDepth||0)+(l.askDepth||0)),0);
+    others.forEach(l=>w[l.venue]=(1-PM_W)*Math.max(1,(l.bidDepth||0)+(l.askDepth||0))/dsum);
+  } else live.forEach(l=>w[l.venue]=1/live.length);
+  return {px:live.reduce((a,l)=>a+l.mid*w[l.venue],0), w};
+}
+
+/* ================= RENDER ================= */
+const fc=v=>v==null?'—':(v*100).toFixed(1)+'¢';
+const fp=v=>v==null?'—':(v*100).toFixed(1)+'%';
+const f$=v=>v==null?'—':'$'+Math.round(v).toLocaleString();
+
+function render(rows){
+  const dirs=[];
+  rows.forEach(r=>r.dirs.forEach(d=>dirs.push({r,d})));
+  dirs.sort((a,b)=>b.d.mm.ann-a.d.mm.ann);
+  const top=dirs.slice(0,8);
+  $('topTable').innerHTML=top.length?`<table><tr>
+    <th>#</th><th>Market</th><th>Structure</th><th>Gross</th><th>Net (retail)</th><th>Net (MM)</th><th>Ann. ROC (MM)</th><th>Hold</th><th>Depth</th></tr>`+
+    top.map((x,i)=>`<tr>
+      <td class="mut">${i+1}</td>
+      <td><span class="tag ${x.r.pair.family}">${x.r.pair.family.toUpperCase()}</span> ${x.r.pair.name}</td>
+      <td class="mut" style="font-size:12px">${x.d.label}</td>
+      <td class="num">${fc(x.d.gross)}</td>
+      <td class="num ${x.d.retail.net>0?'pos':'neg'}">${fc(x.d.retail.net)}</td>
+      <td class="num ${x.d.mm.net>0?'pos':'neg'}">${fc(x.d.mm.net)}</td>
+      <td class="num ${x.d.mm.ann>0?'pos':'neg'}">${fp(x.d.mm.ann)}</td>
+      <td class="num mut">${x.d.hold}d</td>
+      <td>${x.d.depthOk==='ok'?'<span class="tag depth-ok">DEPTH OK</span>':x.d.depthOk==='tob'?'<span class="tag tob">TOB ONLY</span>':'<span class="tag depth-no">THIN</span>'}</td>
+    </tr>`).join('')+`</table>
+    <div class="sub" style="margin-top:8px">Negative net at retail tier but positive at MM tier = the fee-tier argument in one row: the trade exists, but only for designated arb accounts. Both legs assume taker fills at depth-adjusted prices.</div>`
+    :'<div class="loading">No two-venue matches resolved. Check venue status pills; markets may have rolled — adjust PAIRS config.</div>';
+
+  $('cards').innerHTML=rows.map(r=>{
+    const legs=Object.values(r.legs).filter(Boolean);
+    if(!legs.length) return `<div class="card"><h3>${r.pair.name}</h3><div class="meta">No venues resolved this market right now.</div></div>`;
+    const comp=r.composite;
+    return `<div class="card">
+      <h3><span class="tag ${r.pair.family}">${r.pair.family.toUpperCase()}</span> ${r.pair.name}</h3>
+      <div class="meta">${legs.map(l=>l.matched).join(' · ')}</div>
+      <table class="legs"><tr><th>Venue</th><th>Bid</th><th>Ask</th><th>Mid</th><th>vs Composite</th><th>Book depth (bid+ask)</th><th>Days left</th><th></th></tr>
+      ${legs.map(l=>{
+        const dev=comp&&l.mid!=null?l.mid-comp.px:null;
+        return `<tr><td><b>${l.venue}</b> <span class="mut">${l.tob?'(top-of-book)':'(depth-adj)'}</span></td>
+        <td class="num">${fc(l.bid)}</td><td class="num">${fc(l.ask)}</td><td class="num">${fc(l.mid)}</td>
+        <td class="num ${dev>0.002?'neg':dev<-0.002?'pos':'mut'}">${dev==null?'—':(dev>0?'+':'')+(dev*100).toFixed(1)+'¢'+(dev>0.002?' rich':dev<-0.002?' cheap':'')}</td>
+        <td class="num mut">${f$((l.bidDepth||0)+(l.askDepth||0))}</td>
+        <td class="num mut">${l.daysLeft??'—'}d</td>
+        <td><a href="${l.url}" target="_blank" style="color:var(--blue)">↗</a></td></tr>`;}).join('')}
+      </table>
+      <div class="comp">Blinq Composite: <b>${comp?fc(comp.px):'—'}</b> ${comp?'<span class="mut">(weights: '+Object.entries(comp.w).map(([k,v])=>k+' '+(v*100).toFixed(0)+'%').join(', ')+')</span>':''}</div>
+      <div class="equiv">⚠ Equivalence: ${r.pair.equiv}</div>
+    </div>`;}).join('');
+}
+</script>
+</body>
+</html>
