@@ -13,6 +13,14 @@ That's it — `index.html` is static and `api/proxy.js` auto-deploys as a server
 
 Local test: `npx vercel dev` (proxy works) or `npx serve` (direct calls only).
 
+## v2 additions
+
+- **History tab**: per-pair hourly divergence over 7/14/28 days (Kalshi candlesticks × PM price history, joined ±90min), with arb-hour counts, distinct episodes, % of time, max net edge, direction split, and an SVG divergence chart with threshold band. Run a Live scan first (it resolves the pairs), then Load history.
+- **Column legend** under the Top Opportunities table explaining every calculation; header tooltips on hover.
+- **Aligned banner**: when no positive gross edge exists, the page says so explicitly instead of ranking red rows.
+- **Artifact filter**: any direction where one leg's bid-ask exceeds 5¢ is excluded from ranking and labeled ARTIFACT (book width, not price disagreement).
+- **Scan log**: every Live scan stores a snapshot in localStorage — your own spread time series accumulates from day one.
+
 ## How it works
 
 - **Curated pairs** resolve at runtime (Kalshi series tickers, PM search, Limitless scan) so the page survives market churn. Edit the `PAIRS` array in `index.html` to pin specific tickers/slugs or add pairs.

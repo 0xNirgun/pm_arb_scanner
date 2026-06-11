@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Blinq · Cross-Venue Arb Scanner</title>
-<meta name="description" content="Live cross-venue arbitrage scanner for prediction markets: Polymarket × Kalshi × Limitless, with Blinq leverage economics and the Blinq Composite index price.">
+<meta name="description" content="Live cross-venue arbitrage scanner for prediction markets: Polymarket × Kalshi × Limitless, with Blinq leverage economics, 28-day divergence history, and the Blinq Composite index price.">
 <style>
 :root{
   --bg:#0d1320; --panel:#141c2e; --panel2:#1a2438; --line:#243049;
@@ -26,13 +26,18 @@ h1 .bolt{color:var(--teal)}
 .pill.wait{border-color:#5a4a1d;color:var(--amber)}
 button{background:var(--teal);color:#06281f;border:0;border-radius:8px;padding:8px 18px;font-weight:700;font-size:13px;cursor:pointer}
 button:disabled{opacity:.5;cursor:wait}
+button.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
 .ctl{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:10px 0 0;font-size:12.5px;color:var(--dim)}
 .ctl input,.ctl select{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 8px;width:70px;font-size:12.5px}
 .ctl select{width:auto}
-h2{font-size:17px;margin:30px 0 4px}
+.tabs{display:flex;gap:6px;margin:22px 0 0}
+.tab{padding:8px 20px;border-radius:9px 9px 0 0;background:var(--panel);border:1px solid var(--line);border-bottom:0;color:var(--dim);cursor:pointer;font-weight:700;font-size:13px}
+.tab.active{background:var(--panel2);color:var(--teal)}
+.tabpane{display:none}.tabpane.active{display:block}
+h2{font-size:17px;margin:26px 0 4px}
 .sub{color:var(--dim);font-size:12.5px;margin-bottom:12px}
 table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:10px;overflow:hidden;font-size:13px}
-th{background:var(--panel2);text-align:left;padding:9px 12px;font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+th{background:var(--panel2);text-align:left;padding:9px 12px;font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);white-space:nowrap;cursor:help}
 td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:top}
 .num{font-variant-numeric:tabular-nums;white-space:nowrap}
 .pos{color:var(--green);font-weight:700}
@@ -46,6 +51,7 @@ td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:top}
 .tag.depth-ok{background:#143526;color:var(--green)}
 .tag.depth-no{background:#3d1f1f;color:var(--red)}
 .tag.tob{background:#3d3216;color:var(--amber)}
+.tag.artifact{background:#3d1f1f;color:var(--red)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
 .card h3{font-size:15px;margin-bottom:2px}
 .card .meta{color:var(--dim);font-size:12px;margin-bottom:10px}
@@ -54,24 +60,35 @@ td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:top}
 .comp{font-size:13px;margin-top:8px;color:var(--dim)}
 .comp b{color:var(--teal);font-size:15px}
 .equiv{margin-top:8px;font-size:11.5px;color:var(--amber);background:#27210f;border-radius:6px;padding:6px 10px}
-.foot{margin-top:36px;border-top:1px solid var(--line);padding-top:18px;color:var(--dim);font-size:12px}
-.foot h3{color:var(--text);font-size:13px;margin:14px 0 4px}
+.legend{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:12px 0;font-size:12px;color:var(--dim)}
+.legend b{color:var(--text)}
+.legend div{margin:3px 0}
+.banner{border-radius:10px;padding:12px 16px;margin:12px 0;font-size:13px}
+.banner.aligned{background:#10231f;border:1px solid #1d5c50;color:var(--teal)}
 .err-banner{background:#2d1717;border:1px solid #6b2b2b;color:#fca5a5;padding:10px 14px;border-radius:8px;margin:14px 0;font-size:12.5px;display:none}
 .loading{color:var(--dim);padding:30px;text-align:center}
+.statrow{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 13px;font-size:12px;color:var(--dim)}
+.chip b{display:block;font-size:16px;color:var(--text)}
+.chip.hot b{color:var(--green)}
+svg.chart{width:100%;height:170px;background:var(--panel2);border-radius:8px;margin-top:8px}
 code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:11.5px}
+.foot{margin-top:36px;border-top:1px solid var(--line);padding-top:18px;color:var(--dim);font-size:12px}
+.foot h3{color:var(--text);font-size:13px;margin:14px 0 4px}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <h1><span class="bolt">⚡ Blinq</span> · Cross-Venue Arb Scanner <span style="font-size:12px;color:var(--dim)">v1</span></h1>
-  <div class="tagline">Polymarket × Kalshi × Limitless · deeply liquid, non-gappy markets only (selection per the <a href="https://jumpriskpm.netlify.app/" target="_blank">Leverage-Risk Scanner</a>) · net edge shown after ALL fees, at retail and MM tier, with the Blinq leg levered</div>
+  <h1><span class="bolt">⚡ Blinq</span> · Cross-Venue Arb Scanner <span style="font-size:12px;color:var(--dim)">v2</span></h1>
+  <div class="tagline">Polymarket × Kalshi × Limitless · deeply liquid, non-gappy markets only (selection per the <a href="https://jumpriskpm.netlify.app/" target="_blank">Leverage-Risk Scanner</a>) · net edge after ALL fees at retail and MM tier, Blinq leg levered</div>
   <div class="bar">
     <span class="pill" id="pill-pm">Polymarket: —</span>
     <span class="pill" id="pill-ka">Kalshi: —</span>
     <span class="pill" id="pill-li">Limitless: —</span>
     <button id="refresh" onclick="run()">Scan now</button>
     <span class="pill" id="updated">never updated</span>
+    <span class="pill" id="loglinen" style="display:none"></span>
   </div>
   <div class="ctl">
     <label>Expected hold (days) <input type="number" id="holdDays" value="14" min="1" max="120"></label>
@@ -81,173 +98,160 @@ code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:11.5px
   </div>
 </header>
 
-<div class="err-banner" id="corsNote"><b>Some venues blocked direct browser calls.</b> Deploy this folder to Vercel (the included <code>api/proxy.js</code> handles CORS) or run <code>vercel dev</code> locally — the page auto-falls back to the proxy when deployed.</div>
+<div class="err-banner" id="corsNote"><b>Some venues blocked direct browser calls.</b> Deploy to Vercel (included <code>api/proxy.js</code> handles CORS) or run <code>vercel dev</code> — the page auto-falls back to the proxy when deployed.</div>
 
-<h2>Top opportunities</h2>
-<div class="sub">Ranked by annualized net edge at MM tier · both directions tested (lever the rich side via Blinq, buy the cheap side spot) · spreads must survive the depth filter on both legs</div>
-<div id="topTable" class="loading">Press “Scan now” to fetch live quotes.</div>
+<div class="tabs">
+  <div class="tab active" id="tab-live" onclick="showTab('live')">Live scan</div>
+  <div class="tab" id="tab-hist" onclick="showTab('hist')">History (4 weeks)</div>
+</div>
 
-<h2>Market detail · Blinq Composite</h2>
-<div class="sub">Per-venue executable prices, deviation from the composite, and depth. Composite = candidate Blinq mark price: depth-weighted mid, PM-anchored, stale venues dropped.</div>
-<div id="cards"></div>
+<div class="tabpane active" id="pane-live">
+  <h2>Top opportunities</h2>
+  <div class="sub">Ranked by annualized net edge at MM tier · both directions tested · book-width artifacts excluded from ranking</div>
+  <div id="alignedBanner"></div>
+  <div id="topTable" class="loading">Press “Scan now” to fetch live quotes.</div>
+  <div class="legend" id="colLegend">
+    <b>How each column is computed</b>
+    <div><b>Gross</b> — $1 − ask(YES on venue A) − ask(NO on venue B), in cents per $1 contract pair. Positive = you can buy both sides for less than the guaranteed $1 payout. Prices are depth-adjusted VWAPs where order books are available.</div>
+    <div><b>Net (retail)</b> — Gross minus: venue fees (Kalshi 0.07·P·(1−P); Polymarket taker fee where enabled) and Blinq retail costs on the levered leg: 10bps open + 10bps close + 50bps vig per side + 43.8% APR borrow on the borrowed ⅔ of notional for the expected hold.</div>
+    <div><b>Net (MM)</b> — Same, but Blinq MM/arb tier: 5bps per side, no vig, 12% APR borrow. The gap between the two columns is the fee-tier argument.</div>
+    <div><b>Ann. ROC (MM)</b> — Net (MM) ÷ capital deployed (spot-leg premium + levered-leg margin = notional/leverage), × 365 ÷ expected hold. Annualization amplifies small numbers in both directions — read it with the hold length.</div>
+    <div><b>Hold</b> — min(your input, days to each leg's resolution). Borrow cost scales with this; closing early on convergence improves the levered leg.</div>
+    <div><b>Depth</b> — DEPTH OK: spread survives the selected fill size on both books · TOB ONLY: top-of-book quotes, depth unverified · ARTIFACT: one leg's bid-ask wider than 5¢, so the "spread" is book width, not price disagreement (excluded from ranking).</div>
+  </div>
+
+  <h2>Market detail · Blinq Composite</h2>
+  <div class="sub">Per-venue executable prices, deviation from the composite, and depth. Composite = candidate Blinq mark: depth-weighted mid, PM-anchored, stale venues dropped.</div>
+  <div id="cards"></div>
+</div>
+
+<div class="tabpane" id="pane-hist">
+  <h2>Historical divergence — how often did the arb actually exist?</h2>
+  <div class="sub">Hourly co-timed series per pair: Kalshi candlesticks (bid/ask closes) vs Polymarket price history. An <b>arb hour</b> is one where the executable cross — buy the cheap venue, sell the rich one — survives fees (Kalshi formula fee + 10bps MM-tier, Blinq borrow excluded as hold-dependent). Run a Live scan first so pairs are resolved.</div>
+  <div class="ctl" style="margin-bottom:10px">
+    <label>Window <select id="histDays"><option value="7">7d</option><option value="14">14d</option><option value="28" selected>28d</option></select></label>
+    <label>Arb threshold (net ¢) <select id="histThr"><option value="0">0¢ (any)</option><option value="0.5" selected>0.5¢</option><option value="1">1¢</option><option value="2">2¢</option><option value="4">4¢</option></select></label>
+    <label>PM half-spread (¢) <input type="number" id="pmHS" value="0.2" step="0.1" min="0" max="2"></label>
+    <button class="ghost" onclick="runHistory()">Load history</button>
+  </div>
+  <div id="histOut" class="loading">Run a Live scan, then load history. Pairs need both a Polymarket and Kalshi leg (candle APIs verified for those two venues).</div>
+</div>
 
 <div class="foot">
   <h3>Method</h3>
-  <p><b>Gross spread</b> = $1 − ask(YES, venue A) − ask(NO, venue B), tested in both directions across every venue pair with the Blinq-levered leg on Polymarket. Prices are depth-adjusted: the VWAP to fill the selected size on each leg, walked from live order books where the venue exposes one (Polymarket CLOB, Kalshi orderbook); otherwise top-of-book, flagged <span class="tag tob">TOB</span>.</p>
-  <p><b>Net edge</b> subtracts: Kalshi taker fee (0.07·P·(1−P)), Polymarket taker fee where enabled (rate·P·(1−P) from the market's fee schedule), and Blinq costs on the levered leg — <b>retail tier</b>: 10bps open + 10bps close + 50bps vig per side + 43.8% APR borrow on the borrowed portion for the expected hold; <b>MM tier</b>: 5bps per side, no vig, 12% APR borrow. Capital = spot leg premium + levered leg margin (notional/leverage). Annualized = ROC × 365 / hold days.</p>
-  <p><b>Blinq Composite</b> = Σ wᵢ·midᵢ with Polymarket anchored at 60% and the remainder split by visible depth; venues with quotes older than the scan or with no two-sided book are dropped. Deviation of a venue leg from the composite is the rich/cheap signal — the same imbalance that spikes Blinq skew funding on the minority side (funding receipts, not modeled here, further offset borrow cost).</p>
-  <p><b>Not modeled:</b> skew-funding receipts (kicker in the arb's favor), gas, slippage beyond the depth walk, margin-path liquidation risk on the levered leg (run below max leverage), and contract fine-print differences — see per-market equivalence notes. Spreads across venues are sometimes the fine print, not free money. Verify rules before trading.</p>
+  <p><b>Gross spread</b> = $1 − ask(YES, venue A) − ask(NO, venue B), tested both directions with the Blinq-levered leg on Polymarket. Depth-adjusted VWAPs from live books (PM CLOB, Kalshi orderbook); otherwise top-of-book, flagged TOB.</p>
+  <p><b>Blinq Composite</b> = Σ wᵢ·midᵢ, PM anchored 60%, remainder split by visible depth; stale/one-sided venues dropped. Venue deviation from composite is the rich/cheap signal — the same imbalance that spikes Blinq skew funding on the minority side (funding receipts, not modeled, further offset borrow).</p>
+  <p><b>History methodology:</b> Kalshi hourly candlesticks (yes bid/ask closes) joined to PM hourly price points within ±90 min. PM executable prices approximated as price ± a configurable half-spread (PM history exposes trades/mids, not books). Episodes = consecutive arb hours. Daily-granularity caution: this measures <i>standing</i> divergence; sub-hour flickers are invisible, so counts are conservative.</p>
+  <p><b>Not modeled:</b> skew-funding receipts (kicker in the arb's favor), gas, depth beyond the walk, margin-path liquidation risk on the levered leg, Limitless taker fees, and contract fine-print differences — see equivalence notes. A spread is sometimes the fine print, not free money.</p>
   <h3>Sources</h3>
-  <p>Polymarket Gamma + CLOB public APIs · Kalshi trade-api/v2 public market data · Limitless public API. Fee tiers per Blinq economics model (GTM/05). This page is research tooling, not investment advice.</p>
+  <p>Polymarket Gamma/CLOB public APIs · Kalshi trade-api/v2 (markets, orderbook, candlesticks) · Limitless public API. Fee tiers per Blinq economics model (GTM/05). Research tooling, not investment advice.</p>
 </div>
 </div>
 
 <script>
 /* ================= CONFIG ================= */
-const PROXY = '/api/proxy?url=';            // included Vercel function; auto-fallback
-const PM_W  = 0.6;                          // composite PM anchor weight
-const KALSHI = 'https://api.elections.kalshi.com/trade-api/v2';
-const GAMMA  = 'https://gamma-api.polymarket.com';
-const CLOB   = 'https://clob.polymarket.com';
-const LIMITLESS = 'https://api.limitless.exchange';
+const PROXY='/api/proxy?url=';
+const PM_W=0.6;
+const KALSHI='https://api.elections.kalshi.com/trade-api/v2';
+const GAMMA='https://gamma-api.polymarket.com';
+const CLOB='https://clob.polymarket.com';
+const LIMITLESS='https://api.limitless.exchange';
+const ARTIFACT_SPREAD=0.05;  // leg bid-ask wider than this = book-width artifact
 
-/* Curated pair definitions. Resolvers run at scan time so tickers/slugs survive churn.
-   To pin a specific market, set kalshi.ticker / pm.slug / li.slug overrides. */
-const PAIRS = [
-  {
-    id:'fed-next', family:'macro', name:'Fed decision — nearest FOMC · Cut 25bps',
-    equiv:'Both resolve to the FOMC target-range decision at the same meeting. Verify: inter-meeting move handling and "maintain vs cut" bucket boundaries match.',
-    kalshi:{mode:'series', series:'KXFEDDECISION', eventPick:'nearest', strikeRx:/cut\s*25\s*bps/i},
-    pm:{mode:'search', q:'fed decision', eventRx:/^fed (decision|interest)/i, marketRx:/25\s*bps?\s*(decrease|cut)/i},
-    li:null
-  },
-  {
-    id:'fed-next2', family:'macro', name:'Fed decision — following FOMC · Cut 25bps (30D+)',
-    equiv:'Same meeting on both venues; the 30D+ duration market is the leverage-addressable one per the jump-risk scanner.',
-    kalshi:{mode:'series', series:'KXFEDDECISION', eventPick:'second', strikeRx:/cut\s*25\s*bps/i},
-    pm:{mode:'search', q:'fed decision', eventRx:/^fed (decision|interest)/i, marketRx:/25\s*bps?\s*(decrease|cut)/i, eventPick:'second'},
-    li:null
-  },
-  {
-    id:'senate-2026', family:'politics', name:'US Senate control after 2026 midterms · GOP',
-    equiv:'Verify: chamber-control definitions match on independents caucusing and the VP tie-break; resolution dates may differ (election call vs. seating).',
-    kalshi:{mode:'eventsearch', rx:/senate.*(control|majority)|(control|majority).*senate/i, strikeRx:/rep|gop/i},
-    pm:{mode:'search', q:'senate control 2026', eventRx:/senate/i, marketRx:/republican/i},
-    li:null
-  },
-  {
-    id:'house-2026', family:'politics', name:'US House control after 2026 midterms · GOP',
-    equiv:'Same checks as Senate: control definition, vacancies, resolution timing.',
-    kalshi:{mode:'eventsearch', rx:/house.*(control|majority)|(control|majority).*house/i, strikeRx:/rep|gop/i},
-    pm:{mode:'search', q:'house control 2026', eventRx:/house/i, marketRx:/republican/i},
-    li:null
-  },
-  {
-    id:'btc-yearend', family:'crypto', name:'Bitcoin $80K+ in 2026',
-    equiv:'CHECK CAREFULLY: "touch/hit at any point" vs "close above on date" are different contracts; oracle sources differ (PM=CF/CME-style, Limitless=Chainlink, Kalshi=its own index).',
-    kalshi:{mode:'eventsearch', rx:/bitcoin|btc/i, strikeRx:/80,?000|80k/i},
-    pm:{mode:'search', q:'bitcoin price 2026', eventRx:/bitcoin.*(hit|reach|price).*2026|what price.*bitcoin/i, marketRx:/80,?000|80k/i},
-    li:{mode:'scan', rx:/btc|bitcoin/i, strikeRx:/80,?000|80k/i, minDays:7}
-  },
-  {
-    id:'worldcup', family:'sports', name:'2026 FIFA World Cup winner · PM favorite',
-    equiv:'Championship futures (30D+, non-gappy family). Verify: tournament-cancellation and co-host edge cases match across venues.',
-    kalshi:{mode:'eventsearch', rx:/world cup/i, strikeRx:null /* matched to PM favorite at runtime */},
-    pm:{mode:'search', q:'world cup winner', eventRx:/world cup.*(winner|champion)|2026 fifa/i, marketRx:'FAVORITE'},
-    li:null
-  }
+const PAIRS=[
+  {id:'fed-next',family:'macro',name:'Fed decision — nearest FOMC · Cut 25bps',
+   equiv:'Both resolve to the FOMC target-range decision at the same meeting. Verify inter-meeting handling and bucket boundaries.',
+   kalshi:{mode:'series',series:'KXFEDDECISION',eventPick:'nearest',strikeRx:/cut\s*25\s*bps/i},
+   pm:{mode:'search',q:'fed decision',eventRx:/^fed (decision|interest)/i,marketRx:/25\s*bps?\s*(decrease|cut)/i},li:null},
+  {id:'fed-next2',family:'macro',name:'Fed decision — following FOMC · Cut 25bps (30D+)',
+   equiv:'Same meeting on both venues; the 30D+ market is the leverage-addressable one per the jump-risk scanner.',
+   kalshi:{mode:'series',series:'KXFEDDECISION',eventPick:'second',strikeRx:/cut\s*25\s*bps/i},
+   pm:{mode:'search',q:'fed decision',eventRx:/^fed (decision|interest)/i,marketRx:/25\s*bps?\s*(decrease|cut)/i,eventPick:'second'},li:null},
+  {id:'senate-2026',family:'politics',name:'US Senate control after 2026 midterms · GOP',
+   equiv:'Verify chamber-control definitions (independents caucusing, VP tie-break) and resolution timing.',
+   kalshi:{mode:'eventsearch',rx:/senate.*(control|majority)|(control|majority).*senate/i,strikeRx:/rep|gop/i},
+   pm:{mode:'search',q:'senate control 2026',eventRx:/senate/i,marketRx:/republican/i},li:null},
+  {id:'house-2026',family:'politics',name:'US House control after 2026 midterms · GOP',
+   equiv:'Same checks as Senate: control definition, vacancies, resolution timing.',
+   kalshi:{mode:'eventsearch',rx:/house.*(control|majority)|(control|majority).*house/i,strikeRx:/rep|gop/i},
+   pm:{mode:'search',q:'house control 2026',eventRx:/house/i,marketRx:/republican/i},li:null},
+  {id:'btc-yearend',family:'crypto',name:'Bitcoin $80K+ in 2026',
+   equiv:'CHECK: "touch at any point" vs "close above on date" differ; oracles differ (PM vs Chainlink vs Kalshi index).',
+   kalshi:{mode:'eventsearch',rx:/bitcoin|btc/i,strikeRx:/80,?000|80k/i},
+   pm:{mode:'search',q:'bitcoin price 2026',eventRx:/bitcoin.*(hit|reach|price).*2026|what price.*bitcoin/i,marketRx:/80,?000|80k/i},
+   li:{mode:'scan',rx:/btc|bitcoin/i,strikeRx:/80,?000|80k/i,minDays:7}},
+  {id:'worldcup',family:'sports',name:'2026 FIFA World Cup winner · PM favorite',
+   equiv:'Championship futures (30D+, non-gappy family). Verify cancellation/co-host edge cases.',
+   kalshi:{mode:'eventsearch',rx:/world cup/i,strikeRx:null},
+   pm:{mode:'search',q:'world cup winner',eventRx:/world cup.*(winner|champion)|2026 fifa/i,marketRx:'FAVORITE'},li:null}
 ];
 
-/* Blinq fee tiers — mirror of GTM/05-Daily-Economics-Model.xlsx */
-const TIERS = {
-  retail:{feeRT:0.0020, vigRT:0.0100, aprBorrow:0.438},
-  mm:    {feeRT:0.0010, vigRT:0.0000, aprBorrow:0.120}
-};
-const kalshiFee = p => 0.07*p*(1-p);
-const pmFee = (p, mkt) => (mkt && mkt.feesEnabled && mkt.feeSchedule && mkt.feeSchedule.rate) ? mkt.feeSchedule.rate*p*(1-p) : 0;
+const TIERS={retail:{feeRT:0.0020,vigRT:0.0100,aprBorrow:0.438},mm:{feeRT:0.0010,vigRT:0.0000,aprBorrow:0.120}};
+const kalshiFee=p=>0.07*p*(1-p);
+const pmFee=(p,mkt)=>(mkt&&mkt.feesEnabled&&mkt.feeSchedule&&mkt.feeSchedule.rate)?mkt.feeSchedule.rate*p*(1-p):0;
 
-/* ================= FETCH LAYER ================= */
+/* ================= FETCH ================= */
 let usedProxy=false;
 async function jget(url){
-  try{
-    const r=await fetch(url,{headers:{'Accept':'application/json'}});
-    if(!r.ok) throw new Error(r.status);
-    return await r.json();
-  }catch(e){
-    try{
-      const r=await fetch(PROXY+encodeURIComponent(url));
-      if(!r.ok) throw new Error('proxy '+r.status);
-      usedProxy=true;
-      return await r.json();
-    }catch(e2){
-      document.getElementById('corsNote').style.display='block';
-      throw e2;
-    }
+  try{const r=await fetch(url,{headers:{Accept:'application/json'}});if(!r.ok)throw new Error(r.status);return await r.json();}
+  catch(e){
+    try{const r=await fetch(PROXY+encodeURIComponent(url));if(!r.ok)throw new Error('proxy '+r.status);usedProxy=true;return await r.json();}
+    catch(e2){document.getElementById('corsNote').style.display='block';throw e2;}
   }
 }
 
-/* ================= VENUE ADAPTERS =================
-   Each returns a leg: {venue, label, bid, ask, mid, askVWAP, bidDepth$, askDepth$, tob, daysLeft, url, raw} for the YES side. NO side derived: askNO = 1-bid, etc. */
-
+/* ================= VENUE ADAPTERS ================= */
 async function pmResolve(spec){
-  let market=null, event=null;
-  if(spec.slug){
-    const evs=await jget(`${GAMMA}/events?slug=${spec.slug}`); event=evs[0];
-  }else{
+  let market=null,event=null;
+  if(spec.slug){const evs=await jget(`${GAMMA}/events?slug=${spec.slug}`);event=evs[0];}
+  else{
     const res=await jget(`${GAMMA}/public-search?q=${encodeURIComponent(spec.q)}&limit_per_type=8`);
     let events=(res.events||[]).filter(e=>e.active&&!e.closed);
     let hits=events.filter(e=>spec.eventRx.test(e.title||''));
-    if(!hits.length) hits=events;
+    if(!hits.length)hits=events;
     hits.sort((a,b)=>(b.liquidity||0)-(a.liquidity||0));
     event=hits[spec.eventPick==='second'?1:0]||hits[0];
   }
-  if(!event) return null;
+  if(!event)return null;
   let mkts=event.markets||[];
-  if(!mkts.length){ mkts=await jget(`${GAMMA}/markets?limit=80&closed=false&order=liquidityNum&ascending=false&events_slug=${event.slug}`)||[]; }
+  if(!mkts.length){mkts=await jget(`${GAMMA}/markets?limit=80&closed=false&order=liquidityNum&ascending=false&events_slug=${event.slug}`)||[];}
   mkts=mkts.filter(m=>m.active!==false&&m.closed!==true);
-  if(spec.marketRx==='FAVORITE'){
-    mkts.sort((a,b)=>lastP(b)-lastP(a)); market=mkts[0];
-  }else{
-    market=mkts.find(m=>spec.marketRx.test((m.groupItemTitle||'')+' '+(m.question||'')))||null;
-  }
-  if(!market) return null;
-  let tokens=[]; try{tokens=JSON.parse(market.clobTokenIds||'[]');}catch(e){}
-  const leg={venue:'Polymarket', label:market.groupItemTitle||market.question, daysLeft:days(market.endDate),
-             url:`https://polymarket.com/event/${event.slug}`, raw:market, tob:true,
-             bid:+market.bestBid||null, ask:+market.bestAsk||null, bidDepth:0, askDepth:0};
+  if(spec.marketRx==='FAVORITE'){mkts.sort((a,b)=>lastP(b)-lastP(a));market=mkts[0];}
+  else{market=mkts.find(m=>spec.marketRx.test((m.groupItemTitle||'')+' '+(m.question||'')))||null;}
+  if(!market)return null;
+  let tokens=[];try{tokens=JSON.parse(market.clobTokenIds||'[]');}catch(e){}
+  const leg={venue:'Polymarket',label:market.groupItemTitle||market.question,daysLeft:days(market.endDate),
+             url:`https://polymarket.com/event/${event.slug}`,raw:market,tob:true,token:tokens[0]||null,
+             bid:+market.bestBid||null,ask:+market.bestAsk||null,bidDepth:0,askDepth:0};
   if(tokens[0]){
-    try{
-      const book=await jget(`${CLOB}/book?token_id=${tokens[0]}`);
-      if(book&&book.asks&&book.asks.length){
-        Object.assign(leg, walkBook(book), {tob:false});
-      }
-    }catch(e){}
+    try{const book=await jget(`${CLOB}/book?token_id=${tokens[0]}`);
+      if(book&&book.asks&&book.asks.length){Object.assign(leg,walkBook(book),{tob:false});}}catch(e){}
   }
   if(leg.bid==null&&market.outcomePrices){try{leg.bid=leg.ask=+JSON.parse(market.outcomePrices)[0];}catch(e){}}
-  leg.mid=mid(leg); leg.matched=`${event.title} → ${leg.label}`;
+  leg.mid=mid(leg);leg.matched=`${event.title} → ${leg.label}`;
   return leg;
 }
 function lastP(m){try{return +JSON.parse(m.outcomePrices||'[0]')[0]||0;}catch(e){return 0;}}
 
 function walkBook(book){
   const need=+document.getElementById('depthReq').value||10000;
-  const vwap=(levels,desc)=>{ // levels: [{price,size}]
+  const vwap=(levels,desc)=>{
     let arr=levels.map(l=>({p:+l.price,s:+l.size})).sort((a,b)=>desc?b.p-a.p:a.p-b.p);
     let cost=0,qty=0,filled=0;
-    for(const l of arr){ const lv=l.p*l.s; const take=Math.min(lv, Math.max(0,need-filled)); cost+=take; qty+=take/l.p; filled+=take; if(filled>=need)break; }
+    for(const l of arr){const lv=l.p*l.s;const take=Math.min(lv,Math.max(0,need-filled));cost+=take;qty+=take/l.p;filled+=take;if(filled>=need)break;}
     const depth=arr.reduce((a,l)=>a+l.p*l.s,0);
-    return {px: qty? cost/qty : (arr[0]?arr[0].p:null), depth, ok: filled>=need||need===0};
+    return {px:qty?cost/qty:(arr[0]?arr[0].p:null),depth,ok:filled>=need||need===0};
   };
-  const a=vwap(book.asks,false), b=vwap(book.bids,true);
-  return {ask:a.px, bid:b.px, askDepth:a.depth, bidDepth:b.depth, depthOk:a.ok&&b.ok};
+  const a=vwap(book.asks,false),b=vwap(book.bids,true);
+  return {ask:a.px,bid:b.px,askDepth:a.depth,bidDepth:b.depth,depthOk:a.ok&&b.ok};
 }
 
 async function kalshiResolve(spec){
   let mkts=[];
-  if(spec.ticker){ const r=await jget(`${KALSHI}/markets/${spec.ticker}`); mkts=[r.market]; }
+  if(spec.ticker){const r=await jget(`${KALSHI}/markets/${spec.ticker}`);mkts=[r.market];}
   else if(spec.mode==='series'){
     const r=await jget(`${KALSHI}/markets?series_ticker=${spec.series}&status=open&limit=200`);
-    let evs={}; (r.markets||[]).forEach(m=>{(evs[m.event_ticker]=evs[m.event_ticker]||[]).push(m);});
+    let evs={};(r.markets||[]).forEach(m=>{(evs[m.event_ticker]=evs[m.event_ticker]||[]).push(m);});
     let groups=Object.values(evs).map(g=>({g,t:new Date(g[0].close_time)})).filter(x=>x.t>new Date()).sort((a,b)=>a.t-b.t);
     const pick=groups[spec.eventPick==='second'?1:0]||groups[0];
     mkts=pick?pick.g:[];
@@ -255,95 +259,91 @@ async function kalshiResolve(spec){
     let cursor='',events=[];
     for(let i=0;i<3;i++){
       const r=await jget(`${KALSHI}/events?status=open&limit=200${cursor?'&cursor='+cursor:''}`);
-      events=events.concat(r.events||[]); cursor=r.cursor; if(!cursor)break;
+      events=events.concat(r.events||[]);cursor=r.cursor;if(!cursor)break;
     }
     const ev=events.filter(e=>spec.rx.test(e.title||'')).sort((a,b)=>new Date(a.close_time||0)-new Date(b.close_time||0))[0];
-    if(!ev) return null;
+    if(!ev)return null;
     const r=await jget(`${KALSHI}/markets?event_ticker=${ev.event_ticker}&status=open&limit=100`);
     mkts=r.markets||[];
   }
-  if(!mkts.length) return null;
-  let m=spec.strikeRx? mkts.find(x=>spec.strikeRx.test((x.yes_sub_title||'')+' '+(x.subtitle||'')+' '+(x.title||''))) : null;
-  if(!m && spec._matchName) m=mkts.find(x=>((x.yes_sub_title||'')+(x.title||'')).toLowerCase().includes(spec._matchName.toLowerCase()));
-  if(!m) m=mkts.sort((a,b)=>(+b.volume_fp||0)-(+a.volume_fp||0))[0];
-  if(!m) return null;
-  const leg={venue:'Kalshi', label:m.yes_sub_title||m.subtitle||m.title, daysLeft:days(m.close_time), raw:m,
+  if(!mkts.length)return null;
+  let m=spec.strikeRx?mkts.find(x=>spec.strikeRx.test((x.yes_sub_title||'')+' '+(x.subtitle||'')+' '+(x.title||''))):null;
+  if(!m&&spec._matchName)m=mkts.find(x=>((x.yes_sub_title||'')+(x.title||'')).toLowerCase().includes(spec._matchName.toLowerCase()));
+  if(!m)m=mkts.sort((a,b)=>(+b.volume_fp||0)-(+a.volume_fp||0))[0];
+  if(!m)return null;
+  const leg={venue:'Kalshi',label:m.yes_sub_title||m.subtitle||m.title,daysLeft:days(m.close_time),raw:m,
+             ticker:m.ticker,series:(m.ticker||'').split('-')[0],
              url:`https://kalshi.com/markets/${(m.event_ticker||'').toLowerCase()}`,
-             bid:+m.yes_bid_dollars||null, ask:+m.yes_ask_dollars||null, tob:true,
-             bidDepth:(+m.yes_bid_size_fp||0)*(+m.yes_bid_dollars||0), askDepth:(+m.yes_ask_size_fp||0)*(+m.yes_ask_dollars||0)};
+             bid:+m.yes_bid_dollars||null,ask:+m.yes_ask_dollars||null,tob:true,
+             bidDepth:(+m.yes_bid_size_fp||0)*(+m.yes_bid_dollars||0),askDepth:(+m.yes_ask_size_fp||0)*(+m.yes_ask_dollars||0)};
   try{
     const ob=await jget(`${KALSHI}/markets/${m.ticker}/orderbook?depth=32`);
     const o=ob.orderbook||ob;
     if(o&&(o.yes||o.no)){
-      const yesBids=(o.yes||[]).map(l=>({price:l[0]/100,size:l[1]}));           // bids for YES
-      const yesAsks=(o.no||[]).map(l=>({price:1-l[0]/100,size:l[1]}));          // asks for YES = 1 - NO bids
-      Object.assign(leg, walkBook({bids:yesBids, asks:yesAsks}), {tob:false});
+      const yesBids=(o.yes||[]).map(l=>({price:l[0]/100,size:l[1]}));
+      const yesAsks=(o.no||[]).map(l=>({price:1-l[0]/100,size:l[1]}));
+      Object.assign(leg,walkBook({bids:yesBids,asks:yesAsks}),{tob:false});
     }
   }catch(e){}
-  leg.mid=mid(leg); leg.matched=`${m.title}`;
+  leg.mid=mid(leg);leg.matched=`${m.title}`;
   return leg;
 }
 
 async function liResolve(spec){
-  if(!spec) return null;
-  let found=null, page=1, seen=new Set();
+  if(!spec)return null;
+  let found=null,page=1,seen=new Set();
   for(let i=0;i<4&&!found;i++){
     const r=await jget(`${LIMITLESS}/markets/active?limit=50&page=${page++}`);
     const list=r.data||r.markets||[];
-    if(!list.length) break;
+    if(!list.length)break;
     for(const m of list){
-      if(seen.has(m.id))return null; seen.add(m.id);
+      if(seen.has(m.id))return null;seen.add(m.id);
       const title=(m.title||'')+' '+(m.proxyTitle||'');
       const dl=days(m.expirationTimestamp);
       if(spec.rx.test(title)&&(!spec.strikeRx||spec.strikeRx.test(title))&&dl>=(spec.minDays||0)){found=m;break;}
     }
   }
-  if(!found) return null;
+  if(!found)return null;
   const p=found.prices&&found.prices.length?found.prices[0]:null;
   const tp=found.tradePrices||{};
-  const leg={venue:'Limitless', label:found.title, daysLeft:days(found.expirationTimestamp), raw:found, tob:true,
+  const leg={venue:'Limitless',label:found.title,daysLeft:days(found.expirationTimestamp),raw:found,tob:true,
              url:`https://limitless.exchange/markets/${found.slug}`,
-             ask:(tp.buy&&tp.buy.market&&tp.buy.market[0])||p, bid:(tp.sell&&tp.sell.market&&tp.sell.market[0])||p,
-             bidDepth:0, askDepth:0};
-  leg.mid=mid(leg); leg.matched=found.title;
+             ask:(tp.buy&&tp.buy.market&&tp.buy.market[0])||p,bid:(tp.sell&&tp.sell.market&&tp.sell.market[0])||p,
+             bidDepth:0,askDepth:0};
+  leg.mid=mid(leg);leg.matched=found.title;
   return leg;
 }
 
 /* ================= MATH ================= */
 const days=t=>{const d=(new Date(t)-new Date())/86400000;return isFinite(d)?Math.max(0,Math.round(d)):null;};
 const mid=l=>(l.bid!=null&&l.ask!=null)?(l.bid+l.ask)/2:(l.ask??l.bid??null);
+const legSpread=l=>(l&&l.bid!=null&&l.ask!=null)?(l.ask-l.bid):null;
 
-function blinqCost(notional, hold, tier){
+function blinqCost(notional,hold,tier){
   const L=+document.getElementById('lev').value;
   const t=TIERS[tier];
-  return notional*(t.feeRT+t.vigRT) + notional*(1-1/L)*(t.aprBorrow/365)*hold;
+  return notional*(t.feeRT+t.vigRT)+notional*(1-1/L)*(t.aprBorrow/365)*hold;
 }
-function venueFee(leg, price){
-  if(leg.venue==='Kalshi') return kalshiFee(price);
-  if(leg.venue==='Polymarket') return pmFee(price, leg.raw);
-  return 0; // Limitless taker fees market-dependent; flagged in method note
+function venueFee(leg,price){
+  if(leg.venue==='Kalshi')return kalshiFee(price);
+  if(leg.venue==='Polymarket')return pmFee(price,leg.raw);
+  return 0;
 }
-
-/* Edge for: buy YES spot on legA at askYES_A, buy NO levered on PM at askNO_PM (=1-bid_PM). And reverse. */
-function edges(pmLeg, otherLeg, hold){
+function edges(pmLeg,otherLeg,hold){
   const L=+document.getElementById('lev').value;
   const out=[];
-  if(!pmLeg||!otherLeg) return out;
-  // Direction 1: other=YES spot, PM=NO levered
+  if(!pmLeg||!otherLeg)return out;
   if(otherLeg.ask!=null&&pmLeg.bid!=null){
-    const aY=otherLeg.ask, aN=1-pmLeg.bid;
+    const aY=otherLeg.ask,aN=1-pmLeg.bid;
     const gross=1-aY-aN;
     const fees=venueFee(otherLeg,aY)+venueFee(pmLeg,aN);
-    const cap=aY+aN/L;
-    out.push(dirObj(`YES@${otherLeg.venue} + NO@PM(Blinq)`,gross,fees,aN,cap,hold));
+    out.push(dirObj(`YES@${otherLeg.venue} + NO@PM(Blinq)`,gross,fees,aN,aY+aN/L,hold));
   }
-  // Direction 2: PM=YES levered, other=NO spot
   if(pmLeg.ask!=null&&otherLeg.bid!=null){
-    const aY=pmLeg.ask, aN=1-otherLeg.bid;
+    const aY=pmLeg.ask,aN=1-otherLeg.bid;
     const gross=1-aY-aN;
     const fees=venueFee(pmLeg,aY)+venueFee(otherLeg,aN);
-    const cap=aN+aY/L;
-    out.push(dirObj(`YES@PM(Blinq) + NO@${otherLeg.venue}`,gross,fees,aY,cap,hold));
+    out.push(dirObj(`YES@PM(Blinq) + NO@${otherLeg.venue}`,gross,fees,aY,aN+aY/L,hold));
   }
   return out;
 }
@@ -351,18 +351,19 @@ function dirObj(label,gross,fees,blinqNotional,cap,hold){
   const o={label,gross,cap};
   for(const tier of ['retail','mm']){
     const net=gross-fees-blinqCost(blinqNotional,hold,tier);
-    o[tier]={net, roc:net/cap, ann:(net/cap)*365/Math.max(1,hold)};
+    o[tier]={net,roc:net/cap,ann:(net/cap)*365/Math.max(1,hold)};
   }
   return o;
 }
 
-/* ================= ORCHESTRATION ================= */
+/* ================= LIVE SCAN ================= */
 const $=id=>document.getElementById(id);
 function pill(id,state,txt){const e=$(id);e.className='pill '+state;e.textContent=txt;}
+let LAST_ROWS=[];
 
 async function run(){
-  $('refresh').disabled=true; usedProxy=false;
-  pill('pill-pm','wait','Polymarket: …'); pill('pill-ka','wait','Kalshi: …'); pill('pill-li','wait','Limitless: …');
+  $('refresh').disabled=true;usedProxy=false;
+  pill('pill-pm','wait','Polymarket: …');pill('pill-ka','wait','Kalshi: …');pill('pill-li','wait','Limitless: …');
   const hold=+$('holdDays').value||14;
   const status={Polymarket:'ok',Kalshi:'ok',Limitless:'ok'};
   const rows=[];
@@ -371,14 +372,15 @@ async function run(){
     try{r.legs.pm=await pmResolve(pair.pm);}catch(e){status.Polymarket='err';}
     try{
       const ks={...pair.kalshi};
-      if(pair.pm&&pair.pm.marketRx==='FAVORITE'&&r.legs.pm) ks._matchName=(r.legs.pm.label||'').split(' ')[0];
+      if(pair.pm&&pair.pm.marketRx==='FAVORITE'&&r.legs.pm)ks._matchName=(r.legs.pm.label||'').split(' ')[0];
       r.legs.ka=await kalshiResolve(ks);
     }catch(e){status.Kalshi='err';}
     try{r.legs.li=await liResolve(pair.li);}catch(e){status.Limitless='err';}
     const pmL=r.legs.pm;
     for(const other of [r.legs.ka,r.legs.li].filter(Boolean)){
-      const effHold=Math.min(hold, other.daysLeft||hold, pmL?(pmL.daysLeft||hold):hold);
-      r.dirs.push(...edges(pmL,other,effHold).map(d=>({...d,against:other.venue,hold:effHold,
+      const effHold=Math.min(hold,other.daysLeft||hold,pmL?(pmL.daysLeft||hold):hold);
+      const artifact=(legSpread(pmL)>ARTIFACT_SPREAD)||(legSpread(other)>ARTIFACT_SPREAD);
+      r.dirs.push(...edges(pmL,other,effHold).map(d=>({...d,against:other.venue,hold:effHold,artifact,
         depthOk:depthState(pmL,other)})));
     }
     r.composite=composite(Object.values(r.legs).filter(Boolean));
@@ -388,30 +390,43 @@ async function run(){
   pill('pill-ka',status.Kalshi,'Kalshi: '+(status.Kalshi==='ok'?'live':'error'));
   pill('pill-li',status.Limitless,'Limitless: '+(status.Limitless==='ok'?'live':'error'));
   $('updated').textContent='updated '+new Date().toLocaleTimeString()+(usedProxy?' · via proxy':'');
+  LAST_ROWS=rows;
+  logScan(rows);
   render(rows);
   $('refresh').disabled=false;
 }
 
 function depthState(a,b){
   const need=+$('depthReq').value;
-  if(need===0) return 'tob';
+  if(need===0)return 'tob';
   const ok=l=>l&&!l.tob&&(l.depthOk!==false);
   return (ok(a)&&ok(b))?'ok':(a&&b&&(a.tob||b.tob))?'tob':'no';
 }
 function composite(legs){
   const live=legs.filter(l=>l&&l.mid!=null);
-  if(!live.length) return null;
+  if(!live.length)return null;
   const pm=live.find(l=>l.venue==='Polymarket');
-  let w={}, others=live.filter(l=>l!==pm);
+  let w={},others=live.filter(l=>l!==pm);
   if(pm&&others.length){
     w[pm.venue]=PM_W;
     const dsum=others.reduce((a,l)=>a+Math.max(1,(l.bidDepth||0)+(l.askDepth||0)),0);
     others.forEach(l=>w[l.venue]=(1-PM_W)*Math.max(1,(l.bidDepth||0)+(l.askDepth||0))/dsum);
-  } else live.forEach(l=>w[l.venue]=1/live.length);
-  return {px:live.reduce((a,l)=>a+l.mid*w[l.venue],0), w};
+  }else live.forEach(l=>w[l.venue]=1/live.length);
+  return {px:live.reduce((a,l)=>a+l.mid*w[l.venue],0),w};
 }
 
-/* ================= RENDER ================= */
+/* scan logging — builds your own history from the moment you start using the page */
+function logScan(rows){
+  try{
+    const log=JSON.parse(localStorage.getItem('blinqArbLog')||'[]');
+    log.push({t:Date.now(),best:rows.flatMap(r=>r.dirs.filter(d=>!d.artifact)).reduce((m,d)=>Math.max(m,d.mm.net),-1)});
+    while(log.length>2000)log.shift();
+    localStorage.setItem('blinqArbLog',JSON.stringify(log));
+    const e=$('loglinen');e.style.display='';e.textContent=log.length+' scans logged';
+  }catch(e){}
+}
+
+/* ================= RENDER LIVE ================= */
 const fc=v=>v==null?'—':(v*100).toFixed(1)+'¢';
 const fp=v=>v==null?'—':(v*100).toFixed(1)+'%';
 const f$=v=>v==null?'—':'$'+Math.round(v).toLocaleString();
@@ -419,10 +434,22 @@ const f$=v=>v==null?'—':'$'+Math.round(v).toLocaleString();
 function render(rows){
   const dirs=[];
   rows.forEach(r=>r.dirs.forEach(d=>dirs.push({r,d})));
-  dirs.sort((a,b)=>b.d.mm.ann-a.d.mm.ann);
-  const top=dirs.slice(0,8);
+  const ranked=dirs.filter(x=>!x.d.artifact).sort((a,b)=>b.d.mm.ann-a.d.mm.ann);
+  const artifacts=dirs.filter(x=>x.d.artifact);
+  const top=ranked.slice(0,8);
+  const anyPos=ranked.some(x=>x.d.gross>0);
+  $('alignedBanner').innerHTML=!anyPos&&ranked.length?
+    `<div class="banner aligned">✓ No live arb right now — venues are aligned within ${fc(Math.min(...ranked.map(x=>Math.abs(x.d.gross))))} on every tracked pair. That is the normal state; dislocations are episodic (see the History tab for how often they appear).</div>`:'';
   $('topTable').innerHTML=top.length?`<table><tr>
-    <th>#</th><th>Market</th><th>Structure</th><th>Gross</th><th>Net (retail)</th><th>Net (MM)</th><th>Ann. ROC (MM)</th><th>Hold</th><th>Depth</th></tr>`+
+    <th>#</th>
+    <th title="Pair and market family">Market</th>
+    <th title="Which side is bought where; the PM leg is levered via Blinq">Structure</th>
+    <th title="$1 − ask(YES,A) − ask(NO,B). Positive = both sides cost less than the $1 payout">Gross</th>
+    <th title="Gross − venue fees − Blinq retail costs (20bps fees + 100bps vig RT + 43.8% APR borrow × hold)">Net (retail)</th>
+    <th title="Gross − venue fees − Blinq MM tier (10bps RT, no vig, 12% APR borrow × hold)">Net (MM)</th>
+    <th title="Net(MM) ÷ capital (spot premium + margin) × 365 ÷ hold days">Ann. ROC (MM)</th>
+    <th title="min(your input, days to resolution of each leg)">Hold</th>
+    <th title="DEPTH OK = survives fill size on both books · TOB = top-of-book only · thin = fails filter">Depth</th></tr>`+
     top.map((x,i)=>`<tr>
       <td class="mut">${i+1}</td>
       <td><span class="tag ${x.r.pair.family}">${x.r.pair.family.toUpperCase()}</span> ${x.r.pair.name}</td>
@@ -433,13 +460,13 @@ function render(rows){
       <td class="num ${x.d.mm.ann>0?'pos':'neg'}">${fp(x.d.mm.ann)}</td>
       <td class="num mut">${x.d.hold}d</td>
       <td>${x.d.depthOk==='ok'?'<span class="tag depth-ok">DEPTH OK</span>':x.d.depthOk==='tob'?'<span class="tag tob">TOB ONLY</span>':'<span class="tag depth-no">THIN</span>'}</td>
-    </tr>`).join('')+`</table>
-    <div class="sub" style="margin-top:8px">Negative net at retail tier but positive at MM tier = the fee-tier argument in one row: the trade exists, but only for designated arb accounts. Both legs assume taker fills at depth-adjusted prices.</div>`
-    :'<div class="loading">No two-venue matches resolved. Check venue status pills; markets may have rolled — adjust PAIRS config.</div>';
+    </tr>`).join('')+`</table>`+
+    (artifacts.length?`<div class="sub" style="margin-top:8px">${artifacts.length} direction(s) hidden as <span class="tag artifact">ARTIFACT</span> — one leg's bid-ask exceeds 5¢, so the apparent spread is book width, not price disagreement.</div>`:'')
+    :'<div class="loading">No two-venue matches resolved. Check venue pills; markets may have rolled — adjust PAIRS config.</div>';
 
   $('cards').innerHTML=rows.map(r=>{
     const legs=Object.values(r.legs).filter(Boolean);
-    if(!legs.length) return `<div class="card"><h3>${r.pair.name}</h3><div class="meta">No venues resolved this market right now.</div></div>`;
+    if(!legs.length)return `<div class="card"><h3>${r.pair.name}</h3><div class="meta">No venues resolved this market right now.</div></div>`;
     const comp=r.composite;
     return `<div class="card">
       <h3><span class="tag ${r.pair.family}">${r.pair.family.toUpperCase()}</span> ${r.pair.name}</h3>
@@ -457,6 +484,105 @@ function render(rows){
       <div class="comp">Blinq Composite: <b>${comp?fc(comp.px):'—'}</b> ${comp?'<span class="mut">(weights: '+Object.entries(comp.w).map(([k,v])=>k+' '+(v*100).toFixed(0)+'%').join(', ')+')</span>':''}</div>
       <div class="equiv">⚠ Equivalence: ${r.pair.equiv}</div>
     </div>`;}).join('');
+}
+
+/* ================= HISTORY ================= */
+function showTab(t){
+  for(const x of ['live','hist']){
+    $('tab-'+x).classList.toggle('active',x===t);
+    $('pane-'+x).classList.toggle('active',x===t);
+  }
+}
+
+async function kalshiCandles(series,ticker,startTs,endTs){
+  const out=[];const CH=5*86400;
+  for(let s=startTs;s<endTs;s+=CH){
+    const e=Math.min(s+CH,endTs);
+    try{
+      const r=await jget(`${KALSHI}/series/${series}/markets/${ticker}/candlesticks?start_ts=${s}&end_ts=${e}&period_interval=60`);
+      for(const c of (r.candlesticks||[])){
+        out.push({ts:c.end_period_ts,bid:+(c.yes_bid&&c.yes_bid.close_dollars)||null,ask:+(c.yes_ask&&c.yes_ask.close_dollars)||null});
+      }
+    }catch(err){}
+  }
+  return out.filter(c=>c.bid!=null&&c.ask!=null);
+}
+async function pmHistory(token,startTs,endTs){
+  try{
+    const r=await jget(`${CLOB}/prices-history?market=${token}&startTs=${startTs}&endTs=${endTs}&fidelity=60`);
+    let h=(r&&r.history)||[];
+    if(!h.length){const r2=await jget(`${CLOB}/prices-history?market=${token}&interval=1m&fidelity=60`);h=(r2&&r2.history)||[];}
+    return h;
+  }catch(e){return [];}
+}
+
+async function runHistory(){
+  if(!LAST_ROWS.length){$('histOut').innerHTML='<div class="loading">Run a Live scan first so pairs are resolved.</div>';return;}
+  const D=+$('histDays').value,thr=+$('histThr').value/100,HS=(+$('pmHS').value||0)/100;
+  const endTs=Math.floor(Date.now()/1000),startTs=endTs-D*86400;
+  const targets=LAST_ROWS.filter(r=>r.legs.pm&&r.legs.pm.token&&r.legs.ka&&r.legs.ka.ticker);
+  if(!targets.length){$('histOut').innerHTML='<div class="loading">No pairs with both PM and Kalshi legs resolved.</div>';return;}
+  $('histOut').innerHTML='<div class="loading">Pulling candles from both venues… (~'+targets.length*2+' series)</div>';
+  let html='';
+  for(const r of targets){
+    const ka=await kalshiCandles(r.legs.ka.series,r.legs.ka.ticker,startTs,endTs);
+    const pm=await pmHistory(r.legs.pm.token,startTs,endTs);
+    if(!ka.length||!pm.length){html+=`<div class="card"><h3>${r.pair.name}</h3><div class="meta">Insufficient history on one venue (Kalshi ${ka.length} pts, PM ${pm.length} pts).</div></div>`;continue;}
+    const series=[];
+    let pi=0;
+    for(const c of ka){
+      while(pi<pm.length-1&&pm[pi+1].t<=c.ts)pi++;
+      const pt=pm[pi];
+      if(!pt||Math.abs(pt.t-c.ts)>5400)continue;
+      const pmAsk=pt.p+HS,pmBid=Math.max(0,pt.p-HS);
+      const netA=(pmBid-c.ask)-kalshiFee(c.ask)-0.001;     // PM rich: sell PM, buy Kalshi YES
+      const netB=(c.bid-pmAsk)-kalshiFee(1-c.bid)-0.001;   // Kalshi rich: buy PM, sell Kalshi
+      series.push({ts:c.ts,net:Math.max(netA,netB),dir:netA>netB?'PM rich':'Kalshi rich',midDiv:((c.bid+c.ask)/2-pt.p)});
+    }
+    if(!series.length){html+=`<div class="card"><h3>${r.pair.name}</h3><div class="meta">No co-timed hours.</div></div>`;continue;}
+    const arbH=series.filter(s=>s.net>thr);
+    let episodes=0,inEp=false;
+    for(const s of series){if(s.net>thr){if(!inEp){episodes++;inEp=true;}}else inEp=false;}
+    const maxNet=Math.max(...series.map(s=>s.net));
+    const avgDiv=series.reduce((a,s)=>a+s.midDiv,0)/series.length;
+    const dirCounts=arbH.reduce((a,s)=>{a[s.dir]=(a[s.dir]||0)+1;return a;},{});
+    html+=`<div class="card">
+      <h3><span class="tag ${r.pair.family}">${r.pair.family.toUpperCase()}</span> ${r.pair.name}</h3>
+      <div class="meta">${r.legs.pm.matched} ↔ ${r.legs.ka.matched} · ${series.length} co-timed hours over ${D}d</div>
+      <div class="statrow">
+        <div class="chip ${arbH.length?'hot':''}"><b>${arbH.length}</b>arb hours &gt; ${(thr*100).toFixed(1)}¢ net</div>
+        <div class="chip ${episodes?'hot':''}"><b>${episodes}</b>distinct episodes</div>
+        <div class="chip"><b>${(100*arbH.length/series.length).toFixed(1)}%</b>of tracked time</div>
+        <div class="chip"><b>${fc(maxNet)}</b>max net edge</div>
+        <div class="chip"><b>${(avgDiv>=0?'+':'')+(avgDiv*100).toFixed(2)}¢</b>avg mid basis (K−PM)</div>
+        <div class="chip"><b>${Object.entries(dirCounts).map(([k,v])=>k+': '+v+'h').join(' · ')||'—'}</b>direction split</div>
+      </div>
+      ${chart(series,thr)}
+      <div class="meta" style="margin-top:6px">Net executable edge per hour (best direction), after Kalshi fee + 10bps. Blinq borrow excluded (hold-dependent). Band = your threshold. PM half-spread assumed ${(HS*100).toFixed(1)}¢.</div>
+    </div>`;
+  }
+  $('histOut').innerHTML=html||'<div class="loading">No history available.</div>';
+}
+
+function chart(series,thr){
+  const W=1080,H=160,P=28;
+  const xs=series.map(s=>s.ts),ys=series.map(s=>s.net*100);
+  const x0=Math.min(...xs),x1=Math.max(...xs);
+  const yMax=Math.max(1,Math.ceil(Math.max(...ys,thr*100+0.5))),yMin=Math.min(-1,Math.floor(Math.min(...ys)));
+  const X=t=>P+(W-2*P)*(t-x0)/Math.max(1,x1-x0);
+  const Y=v=>H-P-(H-2*P)*(v-yMin)/(yMax-yMin);
+  const path=series.map((s,i)=>(i?'L':'M')+X(s.ts).toFixed(1)+' '+Y(s.net*100).toFixed(1)).join('');
+  const d0=new Date(x0*1000),d1=new Date(x1*1000);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <rect x="${P}" y="${Y(yMax)}" width="${W-2*P}" height="${Math.max(0,Y(thr*100)-Y(yMax))}" fill="rgba(74,222,128,.07)"/>
+    <line x1="${P}" x2="${W-P}" y1="${Y(0)}" y2="${Y(0)}" stroke="#3a4a6b" stroke-width="1"/>
+    <line x1="${P}" x2="${W-P}" y1="${Y(thr*100)}" y2="${Y(thr*100)}" stroke="#4ade80" stroke-dasharray="4 4" stroke-width="1"/>
+    <path d="${path}" fill="none" stroke="#2dd4bf" stroke-width="1.6"/>
+    <text x="${P}" y="${H-6}" fill="#8b97ad" font-size="10">${d0.toLocaleDateString()}</text>
+    <text x="${W-P}" y="${H-6}" fill="#8b97ad" font-size="10" text-anchor="end">${d1.toLocaleDateString()}</text>
+    <text x="${P+4}" y="${Y(thr*100)-4}" fill="#4ade80" font-size="10">arb threshold ${(thr*100).toFixed(1)}¢</text>
+    <text x="${P+4}" y="${Y(0)-4}" fill="#8b97ad" font-size="10">0¢</text>
+  </svg>`;
 }
 </script>
 </body>
